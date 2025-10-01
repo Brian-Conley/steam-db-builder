@@ -1,4 +1,5 @@
-use serde::{Deserialize};
+mod types;
+use types::*;
 use reqwest;
 use std::collections::HashMap;
 use rusqlite::{Connection};
@@ -79,74 +80,6 @@ mac={}, linux={}, achievements={}"#,
     */
 
     Ok(())
-}
-
-#[derive(Deserialize)]
-struct Platforms {
-    windows: bool,
-    mac: bool,
-    linux: bool,
-}
-
-#[derive(Deserialize)]
-struct ReleaseDate {
-    date: String,
-}
-
-#[derive(Deserialize)]
-struct Price {
-    currency: String,
-    initial: u32,
-    #[serde(rename = "final")]
-    final_price: u32,
-}
-
-#[derive(Deserialize, Default)]
-struct Achievements {
-    total: u32,
-}
-
-#[derive(Deserialize)]
-struct Category {
-    id: u32,
-    description: String,
-}
-
-#[derive(Deserialize)]
-struct AppData {
-    #[serde(rename = "type")]
-    kind: Option<String>,
-    steam_appid: u32,
-    name: String,
-    controller_support: Option<String>,
-    price: Option<Price>,
-    release_date: Option<ReleaseDate>,
-    header_image: Option<String>,
-    platforms: Option<Platforms>,
-    #[serde(default)]
-    achievements: Achievements,
-    categories: Option<Vec<Category>>,
-}
-
-#[derive(Deserialize)]
-struct App {
-    success: bool,
-    data: Option<AppData>,
-}
-
-#[derive(Deserialize)]
-struct AppInfo {
-    appid: u32,
-}
-
-#[derive(Deserialize)]
-struct AppList {
-    apps: Vec<AppInfo>,
-}
-
-#[derive(Deserialize)]
-struct SteamApps {
-    applist: AppList,
 }
 
 fn initialize_schema(db: &Connection) -> Result<(), rusqlite::Error> {
