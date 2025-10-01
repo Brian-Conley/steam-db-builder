@@ -19,7 +19,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let baseurl: String = String::from(
         "https://store.steampowered.com/api/appdetails?appids="
     );
-    for app in steamappsinfo.applist.apps.iter().take(100) {
+    for app in steamappsinfo.applist.apps.iter().take(5) {
         let url = baseurl.clone() + &app.appid.to_string();
         let steamapp_map: HashMap<u32, App> = reqwest::get(&url)
             .await?
@@ -29,12 +29,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             steamapps.insert(appid, steamapp);
         }
     }
-
+    println!("Entries: {}", &steamappsinfo.applist.apps.len());
+    /*
     let db = Connection::open("test.db")?;
     if let Err(e) = initialize_schema(&db) {
         eprintln!("Database failed to open: {e}.");
         exit(1);
     };
+    */
 
     Ok(())
 }
@@ -107,7 +109,7 @@ struct SteamApps {
     applist: AppList,
 }
 
-fn initialize_schema(db: &Connection) -> Result<(), ()> {
+fn initialize_schema(db: &Connection) -> Result<(), rusqlite::Error> {
     db.execute_batch(
         r#"
         CREATE TABLE IF NOT EXISTS games (
@@ -120,6 +122,5 @@ fn initialize_schema(db: &Connection) -> Result<(), ()> {
 
         );
         "#
-    );
-    Ok(())
+    )
 }
