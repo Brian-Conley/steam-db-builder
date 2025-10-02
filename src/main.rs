@@ -39,6 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
         if !app.success {
             println!("Unsuccessful request, skipping.");
+            continue;
         }
         if let Some(data) = app.data {
             println!("Successfully fetched: {}", data.name);
