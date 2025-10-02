@@ -26,7 +26,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut current_apps: usize = 0;
 
     println!("Parsing {} apps.", total_apps);
-    for steamapp in steamappsinfo.applist.apps.iter().skip(50000).take(225) {
+    for steamapp in steamappsinfo.applist.apps.iter().skip(50000).take(20) {
         current_apps += 1;
         let appid = steamapp.appid;
         println!("({} / {}) {}", current_apps, total_apps, appid);
@@ -83,18 +83,42 @@ async fn get_app(client: &Client, appid: u32) -> Result<Option<App>, reqwest::Er
     }
 }
 
-fn initialize_schema(db: &Connection) -> Result<(), rusqlite::Error> {
-    db.execute_batch(
+fn initialize_schema(db: &Connection) {
+    if let Err(e) = db.execute_batch(
         r#"
         CREATE TABLE IF NOT EXISTS games (
-
+            appid INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            controller_support INTEGER,
+            has_achievements BOOLEAN,
+            supports_windows BOOLEAN,
+            supports_mac BOOLEAN,
+            supports_linux BOOLEAN,
+            price REAL,
+            total_recommendations INTEGER,
+            release_date DATETIME,
+            header_image TEXT
         );
+
         CREATE TABLE IF NOT EXISTS categories (
-
+            id INTEGER PRIMARY KEY,
+            name TEXT UNIQUE NOT NULL
         );
+
         CREATE TABLE IF NOT EXISTS game_categories (
-
+            appid INTEGER,
+            categoryid INTEGER,
+            PRIMARY KEY (appid, categoryid),
+            FOREIGN KEY (appid) REFERENCES games(appid),
+            FOREIGN KEY (categoryid) REFERENCES categories(id)
         );
+
+        CREATE INDEX IF NOT EXISTS idx_games_name ON games(name);
+        CREATE INDEX IF NOT EXISTS idx_game_categories_appid ON game_categories(appid);
+        CREATE INDEX IF NOT EXISTS idx_game_categories_categoryid ON game_categories(categoryid);
         "#
-    )
+    ) {
+        eprintln!("Error while initializing schema: {}", e);
+        exit(1);
+    } 
 }
