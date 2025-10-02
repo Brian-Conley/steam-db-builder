@@ -1,75 +1,49 @@
 mod types;
 use types::*;
-use reqwest;
+use reqwest::Client;
 use std::collections::HashMap;
 use rusqlite::{Connection};
 use std::process::exit;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+
+    // Create the web client
+    let client = Client::builder()
+        .user_agent("student-steam-db-builder")
+        .build()?;
+
+    // Build a list of all apps by id
     let appsurl: String = String::from(
         "https://api.steampowered.com/ISteamApps/GetAppList/v2/"
     );
-
-    let steamappsinfo: SteamApps = reqwest::get(appsurl)
+    let steamappsinfo: SteamApps = client.get(appsurl).send()
         .await?
         .json()
         .await?;
 
-    // Prepare some variables for parsing and to track progress
     let total_apps: usize = steamappsinfo.applist.apps.len();
     let mut current_apps: usize = 0;
-    //let mut steamapps: HashMap<u32, App> = HashMap::new();
-    let baseurl: String = String::from(
-        "https://store.steampowered.com/api/appdetails?appids="
-    );
 
     println!("Parsing {} apps.", total_apps);
-    // Rewrite this block to handle all null cases, check http response code, and do batching
-    /*
-    for app in steamappsinfo.applist.apps.iter().skip(50000).take(1000) {
-        let url = baseurl.clone() + &app.appid.to_string();
-        let steamapp_map: Option<HashMap<u32, App>> = reqwest::get(&url)
-            .await?
-            .json()
-            .await?;
-
-        let steamapp_map = match steamapp_map {
-            Some(map) => map,
+    for steamapp in steamappsinfo.applist.apps.iter().skip(50000).take(225) {
+        current_apps += 1;
+        let appid = steamapp.appid;
+        println!("({} / {}) {}", current_apps, total_apps, appid);
+        let app = match get_app(&client, appid).await? {
+            Some(app) => app,
             None => {
-                println!("Response null: Skipping.");
+                println!("Invalid response, skipping.");
                 continue;
             }
         };
-
-        if let Some((appid, steamapp)) = steamapp_map.into_iter().next() {
-            //steamapps.insert(appid, steamapp);
-            current_apps += 1;
-            println!("({} / {}) {}:", current_apps, total_apps, appid);
-            if !steamapp.success {
-                println!("Failed to retrieve. Skipping.");
-                continue;
-            }
-            if let Some(ref data) = steamapp.data {
-                println!(
-                    r#"appid={}, name={}, type={}, controller_support={:?},
-price={:?}, release_date={:?}, windows={},
-mac={}, linux={}, achievements={}"#,
-                    data.steam_appid,
-                    data.name,
-                    data.kind.clone().unwrap_or_else(|| "unknown".to_string()),
-                    data.controller_support,
-                    data.price.as_ref().map(|p| format!("{} {}", p.final_price, p.currency)),
-                    data.release_date.as_ref().map(|rd| rd.date.clone()),
-                    data.platforms.as_ref().map_or(false, |p| p.windows),
-                    data.platforms.as_ref().map_or(false, |p| p.mac),
-                    data.platforms.as_ref().map_or(false, |p| p.linux),
-                    data.achievements.total
-                );
-            }
+        if !app.success {
+            println!("Unsuccessful request, skipping.");
+        }
+        if let Some(data) = app.data {
+            println!("Successfully fetched: {}", data.name);
         }
     }
-    */
 
     /*
     let db = Connection::open("test.db")?;
@@ -80,6 +54,32 @@ mac={}, linux={}, achievements={}"#,
     */
 
     Ok(())
+}
+
+async fn get_app(client: &Client, appid: u32) -> Result<Option<App>, reqwest::Error> {
+
+    // Form the correct url
+    let base_url = "https://store.steampowered.com/api/appdetails?appids=";
+    let url = format!("{}{}", base_url, appid);
+
+    // Send request
+    let resp: HashMap<u32, App> = client
+        .get(&url)
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    // Check if the request succeeded, return result
+    if let Some((_id, app)) = resp.into_iter().next() {
+        if app.success {
+            Ok(Some(app))
+        } else {
+            Ok(None)
+        }
+    } else {
+        Ok(None)
+    }
 }
 
 fn initialize_schema(db: &Connection) -> Result<(), rusqlite::Error> {
